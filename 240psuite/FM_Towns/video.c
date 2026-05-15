@@ -379,6 +379,46 @@ static const CRTCMode crtc_15khz_240p_256c = {
     8
 };
 
+/* ---- Custom: 15 kHz 240p 32768c on a single layer ---------------------- *
+ *
+ * Mode 11 as defined by the book (set 14) is a 2-screen 32768c config
+ * where both Layer 0 and Layer 1 contribute to each displayed pixel.
+ * Our patterns code only programs Layer 0, leaving Layer 1 with
+ * uninitialised VRAM, which is why the book-spec mode 11 renders as
+ * "blown up and only partially visible" on both Tsugaru and real Marty.
+ *
+ * This custom config keeps mode 11's full 240p timing (HSW, HST, VST,
+ * HDS/HDE, VDS/VDE, ZOOM=4x H, FR non-interlace) and just flips the
+ * layer config to "1-screen 32768c on Layer 1":
+ *
+ *   - CR0    : 0x8001 -> 0x800A  (matches modes 15/16/17 1-screen HC)
+ *   - SIFTER : 0x1F/0x08 -> 0x0A/0x18 (1-screen HC video-out mux)
+ *   - aperture: Layer 0 -> Layer 1
+ *
+ * The analog signal at the connector is the same 15 kHz / 240p timing
+ * that mode 11 produces; the only difference is that the picture data
+ * comes entirely from one layer. Marty TV output should now show our
+ * full content instead of being broken by the missing second layer.
+ */
+static const CRTCMode crtc_15khz_240p_hc_1s = {
+    {
+        0x0074, 0x0610, 0x0000, 0x0000,   /* same horizontal timing as mode 11 */
+        0x0617, 0x0006, 0x000C, 0x0012,
+        0x020B, 0x00E7, 0x05E7, 0x00E7,
+        0x05E7, 0x002A, 0x020A, 0x002A,
+        0x020A, 0x0000, 0x00E7, 0x0080,
+        0x0100, 0x0000, 0x00E7, 0x0080,
+        0x0100, 0x0056, 0x0007, 0x0303,   /* ZOOM = 4x H both layers */
+        0x800A, 0x0001, 0x0002, 0x0188    /* CR0 = 1-screen 32768c, FR=240p */
+    },
+    { 0x0A, 0x18, 0x00, 0x00 },           /* 1-screen 32768c video-out mux */
+    VRAM_LAYER1,
+    320,                                  /* 320 logical 16-bpp pixels per row */
+    240,
+    2048,                                 /* pitch = LO1 * 8 */
+    16
+};
+
 static const CRTCMode *const mode_table[HFREQ_COUNT] = {
     &crtc_15khz_240p,
     &crtc_15khz_480i,
@@ -389,6 +429,7 @@ static const CRTCMode *const mode_table[HFREQ_COUNT] = {
     &crtc_15khz_320x480_hc,
     &crtc_31khz_512x480_hc,
     &crtc_15khz_240p_256c,
+    &crtc_15khz_240p_hc_1s,
 };
 
 static const char *const mode_name[HFREQ_COUNT] = {
@@ -400,7 +441,8 @@ static const char *const mode_name[HFREQ_COUNT] = {
     "31 kHz / 320x480 32768c (mode 15)",
     "15 kHz / 320x480 32768c (mode 16)",
     "31 kHz / 512x480 32768c (mode 17)",
-    "15 kHz / 240p / 256c   (custom)"
+    "15 kHz / 240p / 256c   (custom)",
+    "15 kHz / 240p / 32768c (custom 1-screen)"
 };
 
 /* ---- Linear framebuffer ------------------------------------------------- *

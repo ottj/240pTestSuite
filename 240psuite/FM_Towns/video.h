@@ -35,8 +35,15 @@ typedef enum {
 
     /* Custom (non-book) mode: 320x240 256c at 15 kHz non-interlace.
      * Derived from mode 11's 240p timing but with Layer 1 in 256c
-     * single-screen instead of the 2-screen 32768c setup. Untested. */
+     * single-screen instead of the 2-screen 32768c setup. */
     HFREQ_15KHZ_240P_256C = 8,
+
+    /* Custom (non-book) mode: 320x240 32768c at 15 kHz non-interlace.
+     * Derived from mode 11's 240p timing but flipped from 2-screen
+     * 32768c (the book set 14 config that is broken in our current
+     * implementation -- we only program one of the two layers) to
+     * 1-screen 32768c on Layer 1. */
+    HFREQ_15KHZ_240P_HC_1S = 9,
 
     HFREQ_COUNT
 } HFreq;

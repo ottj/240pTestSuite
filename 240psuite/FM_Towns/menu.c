@@ -24,8 +24,11 @@ enum {
     MENU_RES_15_480I,              /* M14 */
     MENU_RES_24,                   /* M13 */
     MENU_RES_31,                   /* M12 */
-    /* 32768-colour ("high colour") modes, same secondary ordering. */
-    MENU_RES_15_240P,              /* M11 */
+    /* 32768-colour ("high colour") modes, same secondary ordering.
+     * Custom variants appear before their book-mode counterparts so
+     * working modes show up first in the menu. */
+    MENU_RES_15_240P_HC_1S,        /* custom 1-screen 240p HC */
+    MENU_RES_15_240P,              /* M11 (book set 14, currently broken) */
     MENU_RES_31_320x240_HC,        /* M10 (actually 2-screen 320x480, 31 kHz) */
     MENU_RES_15_320x480_HC,        /* M16 */
     MENU_RES_31_320x480_HC,        /* M15 */
@@ -48,10 +51,11 @@ static const char *const labels[MENU_COUNT] = {
     "MONOSCOPE",
     "SOLID COLORS",
     "RAINBOW",
-    "CST 15K 240P 256C",   /* new custom mode */
+    "CST 15K 240P 256C",
     "M14 15K 480I 256C",
     "M13 24K 640X400 *",
     "M12 31K 640X480 *",
+    "CST 15K 240P  HC ",   /* new: 1-screen variant of mode 11 */
     "M11 15K 240P  HC ",
     "M10 31K 320X240HC",
     "M16 15K 320X480HC",
@@ -167,6 +171,7 @@ static void run_item(int item)
         case MENU_RES_15_480I:         video_set_mode(HFREQ_15KHZ_480I);      break;
         case MENU_RES_24:              video_set_mode(HFREQ_24KHZ);           break;
         case MENU_RES_31:              video_set_mode(HFREQ_31KHZ);           break;
+        case MENU_RES_15_240P_HC_1S:   video_set_mode(HFREQ_15KHZ_240P_HC_1S);break;
         case MENU_RES_15_240P:         video_set_mode(HFREQ_15KHZ_240P);      break;
         case MENU_RES_31_320x240_HC:   video_set_mode(HFREQ_31KHZ_320x240);   break;
         case MENU_RES_15_320x480_HC:   video_set_mode(HFREQ_15KHZ_320x480);   break;

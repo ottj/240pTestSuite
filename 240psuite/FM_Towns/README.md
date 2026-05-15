@@ -67,16 +67,18 @@ Marty), arrow keys + Space/Return/ESC mirror the pad.
 
 ## Video modes
 
-The menu exposes nine modes, four 256-colour and four 32768-colour
-("high colour") drawn from the FM Towns Technical Data Book's standard
-mode table, plus one custom 256-colour 240p config not in the book.
-Behaviour is annotated against both Tsugaru-Marty emulation **and**
-real FM Towns Marty hardware (tested 2026-05-15 via composite /
-S-Video off the on-board downscaler ASIC -- the only output paths
-Marty exposes natively).
+The menu exposes ten modes: four 256-colour and four 32768-colour
+drawn from the FM Towns Technical Data Book's standard mode table,
+plus two custom configs not in the book (a 256C 240p and a 1-screen
+variant of mode 11). Behaviour is annotated against both Tsugaru-Marty
+emulation **and** real FM Towns Marty hardware via composite / S-Video
+off the on-board downscaler ASIC -- the only output paths Marty
+exposes natively.
 
 Menu order is by colour depth (256C first, then HC), then by
 resolution starting at 240p with TV frequencies before monitor.
+Custom variants appear before their book-mode counterparts so
+working modes are at the top of each block.
 
 | Menu label             | Book mode | Reg set | Pixel layout                                                  | Tsugaru-Marty                  | Real Marty (composite/S-Video) |
 |------------------------|-----------|---------|---------------------------------------------------------------|--------------------------------|--------------------------------|
@@ -84,11 +86,20 @@ resolution starting at 240p with TV frequencies before monitor.
 | M14 15K 480I 256C      | mode 14   | set 3   | 720x480 visible x 8 bpp (256c, interlaced)                    | doubles vertically (FO ignored)| **works**, flickers as expected for 480i |
 | M13 24K 640X400 *      | mode 13   | set 2   | 640x400 x 8 bpp                                               | works                          | **works**, menu legible at 2x font scale |
 | M12 31K 640X480 *      | mode 12   | set 1   | 640x480 x 8 bpp                                               | works (menu mode)              | **works**, menu legible at 2x font scale |
-| M11 15K 240P  HC       | mode 11   | set 14  | 128x240 logical x 16 bpp, 4x H-zoom -> ~320x240 effective TV  | crops vertically               | **blown up, only partially visible** (same class of issue as Tsugaru, so likely our CRTC setup, not emulator) |
-| M10 31K 320X240HC      | mode 10   | --      | 2-screen 320x480 x 16 bpp (32768c); 240 rows of Layer 0 only  | 2-screen compositing artefacts | **shifted left, only top-left quadrant visible** (we only program Layer 0; Layer 1 holds garbage) |
+| CST 15K 240P  HC       | --        | custom  | 320x240 x 16 bpp at 15 kHz non-interlace (mode 11 timing + 32768c 1-screen on Layer 1) | vertically doubled (same Tsugaru 15 kHz quirk as M14) | **works** -- proper 240p 32768c TV mode; colours wrong via composite because of the Marty ASIC, not our code |
+| M11 15K 240P  HC       | mode 11   | set 14  | book-spec 2-screen 32768c, 4x H-zoom -> ~320x240 effective TV | crops vertically               | **blown up, only partially visible** -- we only program Layer 0; the 2-screen layer split mangles the picture. Use `CST 15K 240P HC` for a working 240p 32768c instead. |
+| M10 31K 320X240HC      | mode 10   | --      | 2-screen 320x480 x 16 bpp (32768c); 240 rows of Layer 0 only  | 2-screen compositing artefacts | **shifted left, only top-left quadrant visible** -- same 2-screen layer-config root cause as M11. A 1-screen variant would likely fix it. |
 | M16 15K 320X480HC      | mode 16   | --      | 320x480 x 16 bpp (32768c, 15 kHz interlace)                   | vertically doubled             | **wrong colours** (ASIC truncation) |
 | M15 31K 320X480HC      | mode 15   | --      | 320x480 x 16 bpp (32768c)                                     | vertically squished            | **wrong colours** (ASIC truncation) |
 | M17 31K 512X480 *      | mode 17   | --      | 512x480 x 16 bpp (32768c, "flagship")                         | works                          | **wrong colours** (ASIC truncation) |
+
+The pattern of the two `CST` modes is the same: take a broken book
+mode that wanted 2-screen 32768c, keep all of its timing registers
+verbatim (so the analog signal at the connector is byte-identical),
+and just flip the layer config to "1-screen on Layer 1". Works on
+real Marty for both 256C and HC. The corresponding book modes
+(M11, M10) are kept in the menu as reference for anyone who wants
+to revisit the 2-screen layer setup.
 
 Note that the **HC-mode colour truncation on real Marty** is a Marty
 hardware constraint: the downscaler ASIC mangles the 32768-colour
@@ -261,25 +272,29 @@ to a specific table:
 | CD-ISO boot path                                    | **OK**: real Marty boots the same `boot/cdimage.iso` Tsugaru does, IPL + protected-mode entry + kernel jump all survive on real silicon. |
 | 256-colour modes M12 (31 kHz) and M13 (24 kHz)      | **OK**: render normally; menu legible after per-mode font scaling (2x in 24/31 kHz monitor modes, 1x elsewhere). |
 | 480i mode M14                                       | **OK**: works, flickers as expected for 480i. Menu at good apparent size on the TV at 1x font scale. |
-| Custom 240p 256C (`CST 15K 240P 256C`)              | **OK**: works first try. Mode 11's 240p CRTC timing with the layer/depth bits flipped to 256C 1-screen on Layer 1 -- gives Marty owners a proper 240p 256-colour TV mode that isn't in the FM Towns book. |
-| 240p mode M11 (HC)                                  | **Broken on hardware too** (not a Tsugaru artefact): picture is blown up and only partially visible. Our CRTC programming for mode 11 needs to be revisited (likely ZOOM, LO1, or the 2-layer superimpose config). |
-| M10 (31 kHz "320x240" HC, 2-screen)                 | **Shifted left, only top-left quadrant visible**: the mode is a 2-screen layout that interleaves Layer 0 and Layer 1, but we only program Layer 0, so half the picture is missing. Either reconfigure as a 1-screen mode (with V-zoom) or mirror our writes onto Layer 1. |
+| Custom 240p 256C (`CST 15K 240P 256C`)              | **OK**: mode 11's timing + 256C 1-screen layer config -- works first try, gives Marty owners a proper 240p 256-colour TV mode not in the book. |
+| Custom 240p HC (`CST 15K 240P  HC`)                 | **OK**: same trick for HC -- mode 11's timing + 32768C 1-screen on Layer 1 -- works on real Marty. Confirmed that mode 11's brokenness was the 2-screen layer config, not a timing issue. Colours wrong via composite due to the Marty downscaler ASIC, same as the other HC modes. |
+| 240p mode M11 (book set 14)                         | Still **blown up / partially visible** in its book-spec 2-screen 32768c form. Use `CST 15K 240P HC` for working 240p 32768c output. M11 is kept in the menu as the book reference and as a candidate for someone who wants to actually program both layers correctly. |
+| M10 (31 kHz "320x240" HC, 2-screen)                 | Still **shifted left, only top-left quadrant visible** -- same 2-screen layer-config root cause as M11. A 1-screen variant would almost certainly fix it; same recipe as the CST modes. |
 | High-colour modes M15 / M16 / M17                   | **Wrong colours via composite/S-Video** -- the on-board downscaler ASIC cannot pass 15-bit RGB and truncates the signal. The CRTC almost certainly *is* outputting the right G-R-B-555 stream on its digital lines; the picture just doesn't survive the ASIC. Confirming this requires probing the digital RGBHV signals upstream of the ASIC (the motivation for the rainbow pattern). |
 
-So as of the latest hardware pass the **CD boot pipeline, five of nine
+So as of the latest hardware pass the **CD boot pipeline, six of ten
 modes, and the menu font scaling are all hardware-verified working**.
-Remaining work: one CRTC bug (M11), one layer-config issue (M10), and
-three modes blocked by the Marty downscaler ASIC (M15/M16/M17, only
-fixable from outside the software).
+Remaining work: one 2-screen layer-config bug (M10, same root cause
+as M11 -- a CST-style 1-screen variant should fix it), and three
+modes blocked by the Marty downscaler ASIC (M15/M16/M17, only
+verifiable from outside the software via a pre-ASIC probe).
 
-## Future work
-
-* **Fix M11 (15 kHz 240p HC)** -- confirmed broken on real Marty.
-  Likely candidates: ZOOM register, LO1, HDS/HDE, or the 2-layer
-  superimpose config.
 * **Fix M10 (31 kHz 2-screen)** -- only Layer 0 is programmed, so half
-  the picture is empty. Either drop the 2-screen layout for a 1-screen
-  config with 2x V-zoom, or duplicate writes onto Layer 1.
+  the picture is empty. The CST recipe (keep the timing, flip to
+  1-screen on Layer 1) should work the same way it did for M11; the
+  open question is just what V-zoom or VDE-VDS reduction is needed
+  to map the 240 logical rows onto the 480 scan lines mode 10 outputs.
+* **Properly program both layers for M11/M10** -- if someone wants to
+  use the book-spec 2-screen 32768c configs, both Layer 0 and Layer 1
+  need to be written each frame. The patterns module would need a
+  "mirror to Layer 1" pass, or the surface model would need to expose
+  both apertures.
 * **Run the suite on a non-Marty FM Towns** with proper RGB output
   to confirm the HC modes look right when nothing truncates the
   15-bit signal (an indirect way to corner the Marty-ASIC issue).
