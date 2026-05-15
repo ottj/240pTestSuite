@@ -17,6 +17,8 @@
 */FM_Towns/boot/cdimage.iso
 */FM_Towns/boot/floppy*.bin
 */FM_Towns/boot/smoke.bin
+# Developer-local Tsugaru launcher (paths are environment-specific).
+*/FM_Towns/boot/run.sh
 
 #OS
 **/.DS_Store
