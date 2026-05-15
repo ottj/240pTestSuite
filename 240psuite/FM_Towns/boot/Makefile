@@ -104,7 +104,8 @@ floppy-smoke-c.bin: $(BUILD)/ipl.bin $(BUILD)/kernel-smoke.bin | $(BUILD)
 	$(DD) if=/dev/zero of=$@ bs=1024 count=$(FD_SIZE_K) status=none
 	$(DD) if=$(BUILD)/ipl.bin            of=$@ conv=notrunc bs=1 count=2048 status=none
 	$(DD) if=$(BUILD)/kernel-smoke.bin   of=$@ conv=notrunc bs=1 seek=8192 status=none
-	@echo "  floppy-smoke-c.bin: IPL(2KB) + kernel-smoke ($$(stat -f%z $(BUILD)/kernel-smoke.bin) bytes) at +8KB"
+	@sz=$$(wc -c < $(BUILD)/kernel-smoke.bin | tr -d ' '); \
+	  echo "  floppy-smoke-c.bin: IPL(2KB) + kernel-smoke ($$sz bytes) at +8KB"
 
 cd: cdimage.iso
 	@echo "  Built CD ISO at cdimage.iso (boot with -CD <path> -BOOTKEY CD)."
@@ -114,7 +115,7 @@ cd: cdimage.iso
 # system ROM only cares about the boot sector layout.
 $(BUILD)/cdipl.bin: cdipl.asm $(BUILD)/kernel-app.bin | $(BUILD)
 	$(NASM) $(NASMFLAGS_BIN) -o $@ $<
-	@sz=$$(stat -f%z $@); \
+	@sz=$$(wc -c < $@ | tr -d ' '); \
 	  if [ "$$sz" != "8192" ]; then \
 	    echo "ERROR: cdipl.bin is $$sz bytes, expected 8192" >&2; exit 1; \
 	  fi
@@ -128,7 +129,7 @@ floppy-app.bin: $(BUILD)/ipl.bin $(BUILD)/kernel-app.bin | $(BUILD)
 	$(DD) if=/dev/zero of=$@ bs=1024 count=$(FD_SIZE_K) status=none
 	$(DD) if=$(BUILD)/ipl.bin            of=$@ conv=notrunc bs=1 count=2048 status=none
 	$(DD) if=$(BUILD)/kernel-app.bin     of=$@ conv=notrunc bs=1 seek=8192 status=none
-	@sz=$$(stat -f%z $(BUILD)/kernel-app.bin); \
+	@sz=$$(wc -c < $(BUILD)/kernel-app.bin | tr -d ' '); \
 	  if [ $$sz -gt 32768 ]; then \
 	    echo "ERROR: kernel-app.bin is $$sz bytes -- exceeds 32 KB IPL load window." >&2; \
 	    exit 1; \
@@ -138,14 +139,14 @@ floppy-app.bin: $(BUILD)/ipl.bin $(BUILD)/kernel-app.bin | $(BUILD)
 # ---- IPL ----------------------------------------------------------------
 $(BUILD)/smoke.bin: smoke.asm | $(BUILD)
 	$(NASM) $(NASMFLAGS_BIN) -o $@ $<
-	@sz=$$(stat -f%z $@); \
+	@sz=$$(wc -c < $@ | tr -d ' '); \
 	  if [ "$$sz" != "2048" ]; then \
 	    echo "ERROR: smoke.bin is $$sz bytes, expected 2048" >&2; exit 1; \
 	  fi
 
 $(BUILD)/ipl.bin: ipl.asm | $(BUILD)
 	$(NASM) $(NASMFLAGS_BIN) -o $@ $<
-	@sz=$$(stat -f%z $@); \
+	@sz=$$(wc -c < $@ | tr -d ' '); \
 	  if [ "$$sz" != "2048" ]; then \
 	    echo "ERROR: ipl.bin is $$sz bytes, expected 2048" >&2; exit 1; \
 	  fi
@@ -154,7 +155,7 @@ $(BUILD)/ipl.bin: ipl.asm | $(BUILD)
 # Depends on kernel-smoke.bin being built first.
 $(BUILD)/ipl_inline.bin: ipl_inline.asm $(BUILD)/kernel-smoke.bin | $(BUILD)
 	$(NASM) $(NASMFLAGS_BIN) -o $@ $<
-	@sz=$$(stat -f%z $@); \
+	@sz=$$(wc -c < $@ | tr -d ' '); \
 	  if [ "$$sz" != "2048" ]; then \
 	    echo "ERROR: ipl_inline.bin is $$sz bytes, expected 2048" >&2; exit 1; \
 	  fi

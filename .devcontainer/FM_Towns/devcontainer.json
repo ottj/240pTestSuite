@@ -1,0 +1,19 @@
+{
+    "name": "240pTestSuite-FM_Towns",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "mounts": [
+        "source=240psuite-fmtowns-bashhistory,target=/commandhistory,type=volume"
+    ],
+    "workspaceMount": "source=${localWorkspaceFolder}/240psuite/FM_Towns/,target=/workspace,type=bind",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.makefile-tools"
+            ]
+        }
+    }
+}
