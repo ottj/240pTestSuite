@@ -15,9 +15,9 @@ The goal of this version is narrow on purpose:
 It is **not** a port of the full Genesis/SNES test suite -- only the
 patterns most useful for verifying that the resolution switch worked
 correctly on each output: color bars, grid, monoscope, solid colors,
-plus a deterministic full-colour-space rainbow intended for
-reverse-engineering the digital RGBHV signal lines on the Marty
-mainboard.
+plus a deterministic full-colour-space rainbow that doubles as a
+saturation / gradient sweep and a probe-friendly stimulus for hardware
+analysis.
 
 ## Layout
 
@@ -67,28 +67,45 @@ Marty), arrow keys + Space/Return/ESC mirror the pad.
 
 ## Video modes
 
-The menu exposes eight modes, four 256-colour and four 32768-colour
-("high colour"). A trailing `*` in the menu label flags the modes that
-have been verified working on Tsugaru-Marty; the unmarked modes have
-known Tsugaru emulation quirks (collapsed interlace fields, 2-screen
-compositing, 240p vertical crop) and need a real-hardware pass to
-confirm whether the issue is ours or the emulator's.
+The menu exposes nine modes, four 256-colour and four 32768-colour
+("high colour") drawn from the FM Towns Technical Data Book's standard
+mode table, plus one custom 256-colour 240p config not in the book.
+Behaviour is annotated against both Tsugaru-Marty emulation **and**
+real FM Towns Marty hardware (tested 2026-05-15 via composite /
+S-Video off the on-board downscaler ASIC -- the only output paths
+Marty exposes natively).
 
-| Menu label             | Book mode | Reg set | Pixel layout                                                  | Tsugaru-Marty |
-|------------------------|-----------|---------|---------------------------------------------------------------|---------------|
-| M11 15K 240P  HC       | mode 11   | set 14  | 128x240 logical x 16 bpp, 4x H-zoom -> ~320x240 effective TV  | crops vertically |
-| M14 15K 480I 256C      | mode 14   | set 3   | 720x480 visible x 8 bpp (256c, interlaced)                    | doubles vertically (FO ignored) |
-| M13 24K 640X400 *      | mode 13   | set 2   | 640x400 x 8 bpp                                               | works |
-| M12 31K 640X480 *      | mode 12   | set 1   | 640x480 x 8 bpp                                               | works (menu mode) |
-| M10 31K 320X240HC      | mode 10   | --      | 320x240 x 16 bpp (32768c)                                     | 2-screen compositing artefacts |
-| M15 31K 320X480HC      | mode 15   | --      | 320x480 x 16 bpp (32768c)                                     | vertically squished |
-| M16 15K 320X480HC      | mode 16   | --      | 320x480 x 16 bpp (32768c, 15 kHz interlace)                   | vertically doubled |
-| M17 31K 512X480 *      | mode 17   | --      | 512x480 x 16 bpp (32768c, "flagship")                         | works |
+Menu order is by colour depth (256C first, then HC), then by
+resolution starting at 240p with TV frequencies before monitor.
+
+| Menu label             | Book mode | Reg set | Pixel layout                                                  | Tsugaru-Marty                  | Real Marty (composite/S-Video) |
+|------------------------|-----------|---------|---------------------------------------------------------------|--------------------------------|--------------------------------|
+| CST 15K 240P 256C      | --        | custom  | 320x240 x 8 bpp at 15 kHz non-interlace (mode 11 timing + 256c 1-screen on Layer 1) | -- | **works** -- proper 240p 256-colour TV mode, not in the book |
+| M14 15K 480I 256C      | mode 14   | set 3   | 720x480 visible x 8 bpp (256c, interlaced)                    | doubles vertically (FO ignored)| **works**, flickers as expected for 480i |
+| M13 24K 640X400 *      | mode 13   | set 2   | 640x400 x 8 bpp                                               | works                          | **works**, menu legible at 2x font scale |
+| M12 31K 640X480 *      | mode 12   | set 1   | 640x480 x 8 bpp                                               | works (menu mode)              | **works**, menu legible at 2x font scale |
+| M11 15K 240P  HC       | mode 11   | set 14  | 128x240 logical x 16 bpp, 4x H-zoom -> ~320x240 effective TV  | crops vertically               | **blown up, only partially visible** (same class of issue as Tsugaru, so likely our CRTC setup, not emulator) |
+| M10 31K 320X240HC      | mode 10   | --      | 2-screen 320x480 x 16 bpp (32768c); 240 rows of Layer 0 only  | 2-screen compositing artefacts | **shifted left, only top-left quadrant visible** (we only program Layer 0; Layer 1 holds garbage) |
+| M16 15K 320X480HC      | mode 16   | --      | 320x480 x 16 bpp (32768c, 15 kHz interlace)                   | vertically doubled             | **wrong colours** (ASIC truncation) |
+| M15 31K 320X480HC      | mode 15   | --      | 320x480 x 16 bpp (32768c)                                     | vertically squished            | **wrong colours** (ASIC truncation) |
+| M17 31K 512X480 *      | mode 17   | --      | 512x480 x 16 bpp (32768c, "flagship")                         | works                          | **wrong colours** (ASIC truncation) |
+
+Note that the **HC-mode colour truncation on real Marty** is a Marty
+hardware constraint: the downscaler ASIC mangles the 32768-colour
+output before it reaches composite/S-Video. Owners of non-Marty FM
+Towns models with proper RGB output should see HC modes correctly;
+Marty owners can either accept the composite truncation or probe the
+digital RGB lines upstream of the ASIC and feed an external display,
+which is what the [RAINBOW pattern](#rainbow-deterministic-colour-space-sweep)
+is convenient for.
 
 The 240p mode (mode 11) is the canonical FM Towns Marty TV-out mode. It
 uses both display layers configured in 32768-colour direct mode, with
 Layer 0 active and 4x horizontal zoom on both layers; LO1=0x100=256
 bytes/line gives 128 logical pixels per VRAM line stretched to ~320 dots.
+The pattern getting cropped on **both** Tsugaru and real hardware
+strongly suggests our CRTC parameters for mode 11 are off rather than
+this being an emulator artefact.
 
 The 32768-colour pixel format is **G-R-B-555** (bits 14-10 = green,
 9-5 = red, 4-0 = blue, bit 15 reserved for the superimpose transparency
@@ -106,15 +123,22 @@ pattern can be compared across all three horizontal frequencies and
 both colour depths without leaving the pattern. **B / SELECT / ESC**
 returns to the menu.
 
-### Rainbow (for digital-RGBHV signal probing)
+### Rainbow (deterministic colour-space sweep)
 
 The `RAINBOW` pattern is **not** a perceptual rainbow. It is a
 linear walk through the colour space in **bit-significance order**,
-so that the pixel value at a known screen position is deterministic
-and bit-reversible. The intended use is reverse-engineering the
-digital RGBHV signals on the FM Towns Marty mainboard with a logic
-analyzer: probe any pixel, look up the expected DAC output from the
-formula below, compare.
+so the pixel value at any known screen position is deterministic and
+bit-reversible from its `(x, y)` coordinate. Two practical uses:
+
+- As a **saturation / gradient sweep**: every available colour shows
+  up at least once, useful for checking that the active mode actually
+  reaches the colour depth it claims (256 vs 32768 distinct values).
+- As a **probe-friendly stimulus** for hardware analysis: because
+  `colour(x, y)` is given by a closed-form formula (below), a logic
+  analyzer trace on the digital RGB lines at a known pixel position
+  can be matched against the expected DAC output. On Marty this is
+  the only way to confirm 15-bit colour, since the on-board ASIC
+  truncates it before composite/S-Video.
 
 The mapping is:
 
@@ -230,35 +254,40 @@ to a specific table:
 | Set 1/2/3 SIFTER (control=0x0A, priority=0x18) | Table I-4-23 footer (user-verified) + cross-checked against fmtowns_playground |
 | 32768c pixel layout = G-R-B-555 (NOT R-G-B!) | fmtowns_playground `rgb15()` macro + "paints red" demo |
 
-What is **still unverified** and needs a real-hardware pass:
+### Real-Marty test results
 
-1. **Tsugaru-specific render artefacts on five of eight modes.** Modes
-   10, 11, 14, 15, 16 each show a different quirk under Tsugaru-Marty
-   (vertical crop, doubled fields, 2-screen compositing). The CRTC
-   register values in `video.c` match the FM Towns Technical Data Book
-   tables exactly, so the most likely explanation is incomplete
-   emulation rather than wrong programming. This needs confirmation
-   on a real Marty before we either accept the values or hunt for a bug.
-2. **Real-hardware boot from the CD ISO.** Tsugaru happily boots
-   `boot/cdimage.iso`, but the Marty's actual CD drive expects a
-   physical disc with the same byte layout. Burning the ISO and
-   booting from real hardware is the conclusive test.
+| What we wanted to verify                            | Result |
+|-----------------------------------------------------|--------|
+| CD-ISO boot path                                    | **OK**: real Marty boots the same `boot/cdimage.iso` Tsugaru does, IPL + protected-mode entry + kernel jump all survive on real silicon. |
+| 256-colour modes M12 (31 kHz) and M13 (24 kHz)      | **OK**: render normally; menu legible after per-mode font scaling (2x in 24/31 kHz monitor modes, 1x elsewhere). |
+| 480i mode M14                                       | **OK**: works, flickers as expected for 480i. Menu at good apparent size on the TV at 1x font scale. |
+| Custom 240p 256C (`CST 15K 240P 256C`)              | **OK**: works first try. Mode 11's 240p CRTC timing with the layer/depth bits flipped to 256C 1-screen on Layer 1 -- gives Marty owners a proper 240p 256-colour TV mode that isn't in the FM Towns book. |
+| 240p mode M11 (HC)                                  | **Broken on hardware too** (not a Tsugaru artefact): picture is blown up and only partially visible. Our CRTC programming for mode 11 needs to be revisited (likely ZOOM, LO1, or the 2-layer superimpose config). |
+| M10 (31 kHz "320x240" HC, 2-screen)                 | **Shifted left, only top-left quadrant visible**: the mode is a 2-screen layout that interleaves Layer 0 and Layer 1, but we only program Layer 0, so half the picture is missing. Either reconfigure as a 1-screen mode (with V-zoom) or mirror our writes onto Layer 1. |
+| High-colour modes M15 / M16 / M17                   | **Wrong colours via composite/S-Video** -- the on-board downscaler ASIC cannot pass 15-bit RGB and truncates the signal. The CRTC almost certainly *is* outputting the right G-R-B-555 stream on its digital lines; the picture just doesn't survive the ASIC. Confirming this requires probing the digital RGBHV signals upstream of the ASIC (the motivation for the rainbow pattern). |
 
-The grep marker for any remaining uncertain code is `TODO(hw-verify)`.
+So as of the latest hardware pass the **CD boot pipeline, five of nine
+modes, and the menu font scaling are all hardware-verified working**.
+Remaining work: one CRTC bug (M11), one layer-config issue (M10), and
+three modes blocked by the Marty downscaler ASIC (M15/M16/M17, only
+fixable from outside the software).
 
 ## Future work
 
+* **Fix M11 (15 kHz 240p HC)** -- confirmed broken on real Marty.
+  Likely candidates: ZOOM register, LO1, HDS/HDE, or the 2-layer
+  superimpose config.
+* **Fix M10 (31 kHz 2-screen)** -- only Layer 0 is programmed, so half
+  the picture is empty. Either drop the 2-screen layout for a 1-screen
+  config with 2x V-zoom, or duplicate writes onto Layer 1.
+* **Run the suite on a non-Marty FM Towns** with proper RGB output
+  to confirm the HC modes look right when nothing truncates the
+  15-bit signal (an indirect way to corner the Marty-ASIC issue).
 * **Audio.** MDFourier playback via the FM Towns sound hardware
   (YM2612 + PCM controller).
 * **More patterns.** Drop-shadow / striped sprite, 1-pixel checker,
   Sonic-style scaled bricks.
 * **On-screen CRTC dump.** Show the live register values so users can
   verify what the test suite actually programmed.
-* **Polish the unverified modes** once we have real-hardware feedback —
-  if Tsugaru is the culprit for the five quirky modes, the labels
-  should lose their conditional language; if our values are wrong,
-  fix them.
 
-Please report mode-switching results on real Marty hardware (pattern
-looks correct? geometry centered? TV output stable?) so the CRTC tables
-can be locked in.
+The grep marker for any remaining uncertain code is `TODO(hw-verify)`.

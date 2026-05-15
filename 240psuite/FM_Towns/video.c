@@ -336,6 +336,49 @@ static const CRTCMode crtc_31khz_512x480_hc = {
     16
 };
 
+/* ---- Custom: 15 kHz 240p 256c (NOT in the book) ------------------------ *
+ *
+ * The book defines 256-colour modes only at 24/31 kHz progressive or
+ * at 15 kHz 480i (modes 12, 13, 14). To give Marty users a 256-colour
+ * mode that drives the TV at proper 240p we derive a custom CRTC config
+ * from mode 11 (which IS 240p but in 32768c 2-screen) and flip the
+ * layer/colour-depth bits to "256c 1-screen":
+ *
+ *   - All timing registers (HSW, HST, VST, HDS/HDE, VDS/VDE, ...) come
+ *     verbatim from mode 11, so the analog output is identical 15 kHz
+ *     240p as far as the CRT is concerned.
+ *   - CR0 -> 0x800F (matches modes 12/13/14 = START | 256c-1-screen).
+ *   - SIFTER -> { 0x0A, 0x18, 0x00, 0x00 } (256c-1-screen).
+ *   - VRAM aperture -> Layer 1.
+ *   - bpp -> 8.
+ *   - width = 320 logical bytes/line; the 4x H zoom from mode 11 expands
+ *     those 320 bytes into the 1280-dot active area (HDE-HDS = 0x500).
+ *
+ * Untested. Worst case: the CRTC doesn't accept this mix of timing +
+ * layer config and the display goes black or wraps weirdly. If it
+ * works it gives Marty owners a proper 240p 256c mode for TV testing.
+ */
+static const CRTCMode crtc_15khz_240p_256c = {
+    {
+        0x0074, 0x0610, 0x0000, 0x0000,   /* HSW1, HSW2 (same as mode 11)  */
+        0x0617, 0x0006, 0x000C, 0x0012,   /* HST, VST1, VST2, EET          */
+        0x020B, 0x00E7, 0x05E7, 0x00E7,   /* VST=020B (60Hz non-interlace),
+                                             HDS0, HDE0, HDS1              */
+        0x05E7, 0x002A, 0x020A, 0x002A,   /* HDE1, VDS0, VDE0, VDS1        */
+        0x020A, 0x0000, 0x00E7, 0x0080,   /* VDE1, FA0, HAJ0, FO0          */
+        0x0100, 0x0000, 0x00E7, 0x0080,   /* LO0, FA1, HAJ1, FO1           */
+        0x0100, 0x0056, 0x0007, 0x0303,   /* LO1, EHAJ, EVAJ, ZOOM=4x H    */
+        0x800F, 0x0001, 0x0002, 0x0188    /* CR0=256c-1-screen|START,
+                                             CR1=CLKSEL01, FR, CR2         */
+    },
+    { 0x0A, 0x18, 0x00, 0x00 },           /* 256c 1-screen video-out mux   */
+    VRAM_LAYER1,
+    320,                                  /* width: 320 logical 8-bpp     */
+    240,                                  /* height: 240 unique rows      */
+    2048,                                 /* pitch = LO1 * 8              */
+    8
+};
+
 static const CRTCMode *const mode_table[HFREQ_COUNT] = {
     &crtc_15khz_240p,
     &crtc_15khz_480i,
@@ -345,6 +388,7 @@ static const CRTCMode *const mode_table[HFREQ_COUNT] = {
     &crtc_31khz_320x480_hc,
     &crtc_15khz_320x480_hc,
     &crtc_31khz_512x480_hc,
+    &crtc_15khz_240p_256c,
 };
 
 static const char *const mode_name[HFREQ_COUNT] = {
@@ -355,7 +399,8 @@ static const char *const mode_name[HFREQ_COUNT] = {
     "31 kHz / 320x240 32768c (mode 10)",
     "31 kHz / 320x480 32768c (mode 15)",
     "15 kHz / 320x480 32768c (mode 16)",
-    "31 kHz / 512x480 32768c (mode 17)"
+    "31 kHz / 512x480 32768c (mode 17)",
+    "15 kHz / 240p / 256c   (custom)"
 };
 
 /* ---- Linear framebuffer ------------------------------------------------- *

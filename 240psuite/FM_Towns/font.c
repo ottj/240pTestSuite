@@ -155,6 +155,24 @@ static void draw_glyph(VideoSurface *s, int x, int y, u8 fg, const u8 *g)
     }
 }
 
+static void draw_glyph_scaled(VideoSurface *s, int x, int y, u8 fg,
+                              const u8 *g, int scale)
+{
+    int row, col, dx, dy;
+    for (row = 0; row < 8; ++row) {
+        u8 bits = g[row];
+        int py = y + row * scale;
+        for (col = 0; col < 8; ++col) {
+            if (bits & (0x80 >> col)) {
+                int px = x + col * scale;
+                for (dy = 0; dy < scale; ++dy)
+                    for (dx = 0; dx < scale; ++dx)
+                        write_pixel(s, px + dx, py + dy, fg);
+            }
+        }
+    }
+}
+
 void font_draw_text(VideoSurface *s, int x, int y, u8 fg, const char *text)
 {
     while (*text) {
@@ -162,5 +180,17 @@ void font_draw_text(VideoSurface *s, int x, int y, u8 fg, const char *text)
         if (c < 0x20 || c >= 0x80) c = 0x20;
         draw_glyph(s, x, y, fg, font8x8[c - 0x20]);
         x += 8;
+    }
+}
+
+void font_draw_text_scaled(VideoSurface *s, int x, int y, u8 fg,
+                           const char *text, int scale)
+{
+    if (scale <= 1) { font_draw_text(s, x, y, fg, text); return; }
+    while (*text) {
+        unsigned c = (unsigned char)*text++;
+        if (c < 0x20 || c >= 0x80) c = 0x20;
+        draw_glyph_scaled(s, x, y, fg, font8x8[c - 0x20], scale);
+        x += 8 * scale;
     }
 }
