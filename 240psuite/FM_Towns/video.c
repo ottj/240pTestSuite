@@ -419,6 +419,40 @@ static const CRTCMode crtc_15khz_240p_hc_1s = {
     16
 };
 
+/* ---- Custom: 31 kHz 320x240 32768c on a single layer ------------------- *
+ *
+ * Same recipe-spirit as HFREQ_15KHZ_240P_HC_1S, but mode 10's book-spec
+ * CRTC programs only a 320-dot x 240-line active area, which on a 31 kHz
+ * monitor (visible area 640 x 480) leaves the picture confined to the
+ * top-left quadrant. Fixing it needs two changes on top of the layer flip:
+ *
+ *   1. Use mode 15's wider/taller active area: HDE-HDS = 640 dots,
+ *      VDE-VDS = 480 scan lines (-> fills the full 640 x 480 visible).
+ *   2. Set ZOOM to 2x H + 2x V so a 320 x 240 source on Layer 1 is
+ *      upscaled to the 640 x 480 active area.
+ *
+ * Everything else (1-screen 32768c CR0/SIFTER, Layer 1 aperture) is
+ * unchanged from the CST recipe.
+ */
+static const CRTCMode crtc_31khz_320x240_hc_1s = {
+    {
+        0x0060, 0x02C0, 0x0000, 0x0000,   /* HSW, etc.: copied from mode 15 */
+        0x031F, 0x0000, 0x0004, 0x0000,
+        0x0419, 0x008A, 0x030A, 0x008A,   /* HDE-HDS = 640 dots */
+        0x030A, 0x0046, 0x0406, 0x0046,   /* VDE-VDS = 480 scan lines */
+        0x0406, 0x0000, 0x008A, 0x0000,
+        0x0080, 0x0000, 0x008A, 0x0000,   /* LO0 */
+        0x0080, 0x0058, 0x0001, 0x1111,   /* LO1, ZOOM = 2x H + 2x V both layers */
+        0x800A, 0x0002, 0x0000, 0x0192    /* CR0 = 1-screen 32768c */
+    },
+    { 0x0A, 0x18, 0x00, 0x00 },           /* 1-screen 32768c video-out mux */
+    VRAM_LAYER1,
+    320,                                  /* source: 320 logical 16-bpp pixels */
+    240,                                  /* source: 240 rows (CRTC's 2x V zoom -> 480 scan lines) */
+    1024,                                 /* pitch = LO1 * 8 */
+    16
+};
+
 static const CRTCMode *const mode_table[HFREQ_COUNT] = {
     &crtc_15khz_240p,
     &crtc_15khz_480i,
@@ -430,6 +464,7 @@ static const CRTCMode *const mode_table[HFREQ_COUNT] = {
     &crtc_31khz_512x480_hc,
     &crtc_15khz_240p_256c,
     &crtc_15khz_240p_hc_1s,
+    &crtc_31khz_320x240_hc_1s,
 };
 
 static const char *const mode_name[HFREQ_COUNT] = {
@@ -442,7 +477,8 @@ static const char *const mode_name[HFREQ_COUNT] = {
     "15 kHz / 320x480 32768c (mode 16)",
     "31 kHz / 512x480 32768c (mode 17)",
     "15 kHz / 240p / 256c   (custom)",
-    "15 kHz / 240p / 32768c (custom 1-screen)"
+    "15 kHz / 240p / 32768c (custom 1-screen)",
+    "31 kHz / 320x240 32768c (custom 1-screen)"
 };
 
 /* ---- Linear framebuffer ------------------------------------------------- *

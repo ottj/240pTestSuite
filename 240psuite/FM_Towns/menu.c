@@ -29,7 +29,8 @@ enum {
      * working modes show up first in the menu. */
     MENU_RES_15_240P_HC_1S,        /* custom 1-screen 240p HC */
     MENU_RES_15_240P,              /* M11 (book set 14, currently broken) */
-    MENU_RES_31_320x240_HC,        /* M10 (actually 2-screen 320x480, 31 kHz) */
+    MENU_RES_31_320x240_HC_1S,     /* custom 1-screen 31 kHz 320x240 HC */
+    MENU_RES_31_320x240_HC,        /* M10 (book, currently broken) */
     MENU_RES_15_320x480_HC,        /* M16 */
     MENU_RES_31_320x480_HC,        /* M15 */
     MENU_RES_31_512x480_HC,        /* M17 */
@@ -55,8 +56,9 @@ static const char *const labels[MENU_COUNT] = {
     "M14 15K 480I 256C",
     "M13 24K 640X400 *",
     "M12 31K 640X480 *",
-    "CST 15K 240P  HC ",   /* new: 1-screen variant of mode 11 */
+    "CST 15K 240P  HC ",   /* 1-screen variant of mode 11 */
     "M11 15K 240P  HC ",
+    "CST 31K 320X240HC",   /* 1-screen variant of mode 10 */
     "M10 31K 320X240HC",
     "M16 15K 320X480HC",
     "M15 31K 320X480HC",
@@ -171,9 +173,10 @@ static void run_item(int item)
         case MENU_RES_15_480I:         video_set_mode(HFREQ_15KHZ_480I);      break;
         case MENU_RES_24:              video_set_mode(HFREQ_24KHZ);           break;
         case MENU_RES_31:              video_set_mode(HFREQ_31KHZ);           break;
-        case MENU_RES_15_240P_HC_1S:   video_set_mode(HFREQ_15KHZ_240P_HC_1S);break;
-        case MENU_RES_15_240P:         video_set_mode(HFREQ_15KHZ_240P);      break;
-        case MENU_RES_31_320x240_HC:   video_set_mode(HFREQ_31KHZ_320x240);   break;
+        case MENU_RES_15_240P_HC_1S:   video_set_mode(HFREQ_15KHZ_240P_HC_1S);   break;
+        case MENU_RES_15_240P:         video_set_mode(HFREQ_15KHZ_240P);         break;
+        case MENU_RES_31_320x240_HC_1S:video_set_mode(HFREQ_31KHZ_320x240_HC_1S);break;
+        case MENU_RES_31_320x240_HC:   video_set_mode(HFREQ_31KHZ_320x240);      break;
         case MENU_RES_15_320x480_HC:   video_set_mode(HFREQ_15KHZ_320x480);   break;
         case MENU_RES_31_320x480_HC:   video_set_mode(HFREQ_31KHZ_320x480);   break;
         case MENU_RES_31_512x480_HC:   video_set_mode(HFREQ_31KHZ_512x480);   break;

@@ -45,6 +45,12 @@ typedef enum {
      * 1-screen 32768c on Layer 1. */
     HFREQ_15KHZ_240P_HC_1S = 9,
 
+    /* Custom (non-book) mode: 320x240 32768c at 31 kHz.
+     * Same trick as HFREQ_15KHZ_240P_HC_1S but for mode 10's timing:
+     * keep all CRTC timing registers from mode 10 and flip the
+     * layer-config from 2-screen 32768c to 1-screen 32768c on Layer 1. */
+    HFREQ_31KHZ_320x240_HC_1S = 10,
+
     HFREQ_COUNT
 } HFreq;
 
