@@ -309,3 +309,43 @@ remain "broken on purpose" -- the CST variants are the working path.
   verify what the test suite actually programmed.
 
 The grep marker for any remaining uncertain code is `TODO(hw-verify)`.
+
+## Acknowledgements
+
+This port stands on the shoulders of a small but extraordinarily
+generous FM Towns homebrew and preservation community. None of the
+"bare-metal" parts would have been possible without their work.
+
+* **Captain YS / Yamane** -- author of the
+  [Tsugaru](https://github.com/captainys/TOWNSEMU) FM Towns / Marty
+  emulator and of the [FM Towns IPL bootloader page](https://ysflight.in.coocan.jp/FM/towns/bootloader/e.html),
+  plus a suite of reference IPL / BIOS source files in his FM repo
+  (`IODEF.ASM`, `HID_IO.ASM`, `CD_IPL.ASM`, `HD_IPL0.ASM`,
+  `ICM_IPLM.ASM`, ...). Tsugaru gave us an iteratable target,
+  and `MachineID()` in particular let us figure out the 386SX vs
+  486+ VRAM-aperture difference. The IPL pages and code documented
+  the FM Towns boot protocol (`"IPL4"` header, `B000:0004` entry,
+  `BL` boot-source byte) at a level of detail nothing else came
+  close to.
+* **gameblabla** -- the
+  [fmtowns_playground](https://github.com/gameblabla/fmtowns_playground)
+  repo (branch `simp`). The `CRTC_SET_28`, `CRTC_SET_31` and
+  `VIDEO_SET_31` constants were used verbatim for several CRTC
+  configurations, and the `rgb15()` macro plus the "paints the
+  screen red" demo nailed down the G-R-B-555 pixel ordering that
+  the FM Towns Technical Data Book describes ambiguously.
+* **Fujitsu Limited** -- the **FM Towns Technical Data Book**
+  (ISBN 4-89052-393-2). Nearly every magic number in `video.c` and
+  `input.c` traces to a specific table in this book (cross-referenced
+  in the Hardware Notes section above). The book also defines the
+  18-mode standard mode table that the "M11..M17" labels in the menu
+  refer to, and Table I-7-9 / I-7-10 specify the joypad protocol used
+  by both the FM Towns and the Marty.
+* **The FM Towns homebrew, preservation and modding community at
+  large** -- the people writing demos, dumping ROMs, building flash
+  carts, designing RGB mods, maintaining wikis, and answering
+  questions on forums. A platform that shipped in 1989 still being
+  approachable in 2026 is entirely down to their long-running work.
+
+Bugs and rough edges in this port are mine alone; the parts that
+work are largely thanks to the resources above.
