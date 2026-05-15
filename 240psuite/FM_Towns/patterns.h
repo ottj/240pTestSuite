@@ -10,9 +10,12 @@
 
 /* Each pattern runs its own little loop. It returns when the user
  * presses CANCEL (B / SELECT / ESC). Inside the pattern the user can:
- *   - press LEFT/RIGHT to cycle the horizontal frequency
- *     (15 -> 24 -> 31 kHz, wrapping), so they can compare the same
- *     pattern across all three outputs without going back to the menu.
+ *   - press LEFT/RIGHT to cycle through the visible video modes
+ *     (the same set the menu shows, in the same order, wrapping at
+ *     the ends), so they can compare the same pattern across modes
+ *     without going back to the menu. The broken book modes M11 and
+ *     M10 are skipped from this cycle the same way they're absent
+ *     from the menu.
  *   - press A/RUN if the pattern has additional sub-states (e.g.
  *     toggling grid color).
  */

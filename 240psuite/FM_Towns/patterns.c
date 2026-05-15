@@ -138,16 +138,43 @@ static void fill(VideoSurface *s, u8 c)
     for (y = 0; y < s->height; ++y) hline(s, 0, s->width - 1, y, c);
 }
 
-/* Cycle to the next horizontal frequency. After the mode change, the
- * patterns module gets a fresh blanked surface, so the caller must
+/* Visible / cycleable modes. The HFreq enum in video.h still defines
+ * HFREQ_15KHZ_240P (book M11) and HFREQ_31KHZ_320x240 (book M10) for
+ * reference, but those 2-screen 32768c configs don't render correctly
+ * in our code (we only program one of the two layers), so they were
+ * dropped from the menu and are skipped here too. Order matches the
+ * menu's HC/256C grouping and resolution sort so the LEFT/RIGHT cycle
+ * inside a pattern walks the same list a user sees in the menu.
+ */
+static const HFreq cycle_modes[] = {
+    HFREQ_15KHZ_240P_256C,        /* CST 15K 240P 256C */
+    HFREQ_15KHZ_480I,             /* M14 15K 480I 256C */
+    HFREQ_24KHZ,                  /* M13 24K 640x400   */
+    HFREQ_31KHZ,                  /* M12 31K 640x480   */
+    HFREQ_15KHZ_240P_HC_1S,       /* CST 15K 240P HC   */
+    HFREQ_31KHZ_320x240_HC_1S,    /* CST 31K 320x240HC */
+    HFREQ_15KHZ_320x480,          /* M16 15K 320x480HC */
+    HFREQ_31KHZ_320x480,          /* M15 31K 320x480HC */
+    HFREQ_31KHZ_512x480,          /* M17 31K 512x480HC */
+};
+#define CYCLE_N ((int)(sizeof(cycle_modes) / sizeof(cycle_modes[0])))
+
+/* Cycle to the prev/next mode in cycle_modes[]. After the mode change,
+ * the patterns module gets a fresh blanked surface, so the caller must
  * re-render whatever it was showing.
  */
 static void cycle_mode(int dir)
 {
-    int n = (int)video_current_mode() + dir;
-    if (n < 0)            n = HFREQ_COUNT - 1;
-    if (n >= HFREQ_COUNT) n = 0;
-    video_set_mode((HFreq)n);
+    HFreq cur = video_current_mode();
+    int   idx = 0;
+    int   i;
+    for (i = 0; i < CYCLE_N; ++i) {
+        if (cycle_modes[i] == cur) { idx = i; break; }
+    }
+    idx += dir;
+    if (idx < 0)        idx = CYCLE_N - 1;
+    if (idx >= CYCLE_N) idx = 0;
+    video_set_mode(cycle_modes[idx]);
 }
 
 /* Wait one frame and poll input. Returns the bitmask of newly pressed
