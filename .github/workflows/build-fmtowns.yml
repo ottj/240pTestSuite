@@ -1,0 +1,37 @@
+name: Build FM Towns floppy + CD image
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-fmtowns.yml'
+      - '.devcontainer/FM_Towns/**'
+      - '240psuite/FM_Towns/**'
+  pull_request:
+    paths:
+      - '.github/workflows/build-fmtowns.yml'
+      - '.devcontainer/FM_Towns/**'
+      - '240psuite/FM_Towns/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build FM Towns images using devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: ./.devcontainer/FM_Towns/devcontainer.json
+          push: never
+          runCmd: |
+            cd boot && make all && make cd
+
+# Comment in, if/when needed.
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: 240pTestSuite-FM_Towns
+      #     path: |
+      #       ./240psuite/FM_Towns/boot/floppy.bin
+      #       ./240psuite/FM_Towns/boot/cdimage.iso

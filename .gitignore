@@ -8,3 +8,17 @@
 */N64/filesystem/*
 */N64/build/*
 **/*.z64
+
+# Ignore FM Towns build files
+*/FM_Towns/bin/*
+*/FM_Towns/build/*
+*/FM_Towns/release/*
+*/FM_Towns/boot/build/
+*/FM_Towns/boot/cdimage.iso
+*/FM_Towns/boot/floppy*.bin
+*/FM_Towns/boot/smoke.bin
+# Developer-local Tsugaru launcher (paths are environment-specific).
+*/FM_Towns/boot/run.sh
+
+#OS
+**/.DS_Store

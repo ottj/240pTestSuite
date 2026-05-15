@@ -107,6 +107,19 @@ Gamecube:
 This version has the same features as the Wii version, can be ran from CD or
 an SD card media launcher.
 
+FM Towns / FM Towns Marty:
+--------------------------
+This version supports all three FM Towns CRTC frequencies (15.7, 24.8 and
+31.5 kHz) with several resolutions and colour depths on each: 240p, 480i,
+640x400 and 640x480 in 256 colours, plus four 32768-colour ("high colour")
+modes including a 240p TV mode and the 512x480 flagship. It self-boots
+from a CD ISO and the same binary runs on both 486-class FM Towns systems
+and the 386SX-based Marty -- the CPU class is detected at startup so the
+correct VRAM aperture is used automatically. Joypad-controllable for the
+Marty (which has no keyboard by default), with keyboard fallback on stock
+FM Towns. The build is fully bare-metal (clang + LLD + NASM); no FM Towns
+SDK is required.
+
 Contributors
 ===============================================================================
     * Code: Artemio Urbina
