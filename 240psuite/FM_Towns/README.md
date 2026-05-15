@@ -14,7 +14,10 @@ The goal of this version is narrow on purpose:
 
 It is **not** a port of the full Genesis/SNES test suite -- only the
 patterns most useful for verifying that the resolution switch worked
-correctly on each output: color bars, grid, monoscope, solid colors.
+correctly on each output: color bars, grid, monoscope, solid colors,
+plus a deterministic full-colour-space rainbow intended for
+reverse-engineering the digital RGBHV signal lines on the Marty
+mainboard.
 
 ## Layout
 
@@ -24,7 +27,7 @@ correctly on each output: color bars, grid, monoscope, solid colors.
 | `video.[ch]` | CRTC programming, mode tables, palette, vsync. CPU-aware VRAM bases (`0x80000000`/`0x80100000` on 486+, `0xA00000`/`0xB00000` on 386SX/Marty). |
 | `input.[ch]` | FM Towns / Marty pad reading + keyboard fallback. |
 | `menu.[ch]`  | Top-level menu UI. |
-| `patterns.[ch]` | Color bars / grid / monoscope / solid colors. Bpp-aware (8-bpp for 24/31 kHz 256c modes, 16-bpp G-R-B-555 for 15 kHz 240p mode). |
+| `patterns.[ch]` | Color bars / grid / monoscope / solid colors / rainbow. Bpp-aware: 8-bpp palette indices in 256c modes, packed 16-bpp G-R-B-555 words in HC modes, from the same drawing code. |
 | `font.[ch]`  | Tiny built-in 8x8 ASCII font for the menu. |
 | `Makefile`   | (Stub for the original Townsdev path; not used by the working bare-metal build.) |
 | `boot/`      | **Working build path**: clang -target i386-elf + NASM IPL + LLD. Produces a bootable CD ISO. See `boot/README.md`. |
@@ -93,6 +96,109 @@ flag -- Table I-4-3, cross-checked against the `rgb15()` macro in
 fmtowns_playground). `patterns.c` is bpp-aware: it writes 8-bit palette
 indices in the 256-colour modes and packed 16-bit G-R-B-555 pixels in
 the high-colour modes from the same drawing code.
+
+## Patterns
+
+`COLOR BARS`, `GRID`, `MONOSCOPE`, `SOLID COLORS` are the classic
+geometry / convergence / colour-fidelity tests. Inside any pattern,
+**LEFT / RIGHT cycles through the eight video modes** so the same
+pattern can be compared across all three horizontal frequencies and
+both colour depths without leaving the pattern. **B / SELECT / ESC**
+returns to the menu.
+
+### Rainbow (for digital-RGBHV signal probing)
+
+The `RAINBOW` pattern is **not** a perceptual rainbow. It is a
+linear walk through the colour space in **bit-significance order**,
+so that the pixel value at a known screen position is deterministic
+and bit-reversible. The intended use is reverse-engineering the
+digital RGBHV signals on the FM Towns Marty mainboard with a logic
+analyzer: probe any pixel, look up the expected DAC output from the
+formula below, compare.
+
+The mapping is:
+
+```
+colour(x, y) = ( (y * w + x) * N ) / (w * h)
+```
+
+with `N = 256` in 256-colour modes, `N = 32768` in HC modes, and
+`w`, `h` the active mode's width and height. The implementation uses
+a 16.16 fixed-point accumulator (no compiler-rt is linked, so 64-bit
+multiplies are out); truncation costs at most one or two colour
+indices at the bottom-right corner pixel, e.g. 253 instead of 255 in
+8-bpp 640x480. The formula above is the authoritative mapping --
+match probe traces against it, not against the literal end colour.
+
+#### 256-colour modes: RGB332 palette
+
+Before drawing, the pattern uploads an **RGB332 palette** so that
+the palette index itself encodes the bits the DAC will emit:
+
+```
+index bits  7 6 5  4 3 2  1 0
+field       R R R  G G G  B B
+```
+
+Each field is replicated across the 8 DAC output bits so the palette
+is monotonic and reaches near-full intensity at index `0xFF`. If you
+see palette index `0xE0` on the bus, the DAC should be driving
+(R = 0xFF, G = 0, B = 0).
+
+#### High-colour modes: G-R-B-555 direct
+
+The pattern writes the packed 16-bit word straight into VRAM, with
+bit 15 cleared (the superimpose transparency flag, Table I-4-3):
+
+```
+word bits  15  14 13 12 11 10  9 8 7 6 5  4 3 2 1 0
+field      -    G  G  G  G  G  R R R R R  B B B B B
+```
+
+Pixel word `0x7C00` decodes to (G = 31, R = 0, B = 0) = pure green.
+
+#### Why it looks like stripes
+
+Because the counter increments by 1 per pixel, the **lowest bits cycle
+fastest** and the **highest bits cycle slowest**. That maps directly
+to the visible geometry:
+
+In **HC modes** (16 bpp G-R-B-555), G is the most significant field, so
+the screen breaks into **32 large horizontal stripes** corresponding to
+G = 0..31. Within each stripe, R increments top-to-bottom (a few rows
+per R value), and B sweeps 0..31 several times across each row -- that
+B sweep is what shows up as the diagonal staircase, because 32 B-steps
+generally don't align with the screen width:
+
+| Field | Bits | Cycles every | Visual effect |
+|-------|------|--------------|---------------|
+| B     | 0..4   | 32 colour steps  | fast horizontal sweep within each row (diagonal-looking due to row-misalignment) |
+| R     | 5..9   | 1024 colour steps | a few horizontal R-bands inside each G-stripe |
+| G     | 10..14 | 32768 colour steps | 32 large horizontal stripes, top→bottom |
+
+So in the **first stripe** (G = 0): top rows have low R (dark / blue
+shades), middle rows have mid R (dim red), bottom rows have R = 31
+(pure red on the left of each B-sweep, magenta on the right where B
+peaks). In the **last stripe** (G = 31): the left of each B-sweep is
+pure green, the middle is yellow (G + R), the right is white-ish
+(G + R + B).
+
+In **256C modes** (8 bpp RGB332) the same logic applies with fewer
+bits, so you see **8 large horizontal stripes** corresponding to
+R = 0..7, each with 8 internal G sub-bands of 4 B values. Same purpose,
+fewer macro-stripes.
+
+#### How to use it for probing
+
+1. Run the test suite, navigate to `RAINBOW`, optionally cycle to the
+   mode you want to probe (LEFT/RIGHT).
+2. Pick a pixel position `(x, y)`.
+3. Compute `idx = y * w + x`, then `colour = idx * N / (w * h)`.
+4. Decode `colour` against the bit layout for that mode (RGB332 or
+   G-R-B-555).
+5. The decoded `(R, G, B)` triple is what the video controller is
+   driving on the digital RGB output for that pixel. Compare with the
+   logic analyzer trace.
 
 ## Hardware notes & caveats
 

@@ -347,3 +347,97 @@ void pattern_solid_colors(void)
         (void)dummy;
     }
 }
+
+/* ---- rainbow ------------------------------------------------------------ *
+ *
+ * Linear colour sweep from the top-left corner (colour 0) to the
+ * bottom-right corner (colour N-1). Adapted at runtime to the active
+ * mode's resolution and colour depth:
+ *
+ *   - 8-bpp 256-colour modes load an RGB332 palette (3 bits R, 3 G,
+ *     2 B, packed directly into the index) so the palette index
+ *     itself encodes the RGB output of the DAC. The pixel value
+ *     swept across the screen is the index.
+ *   - 16-bpp 32768-colour modes write G-R-B-555 directly (Table I-4-3),
+ *     bit 15 cleared. The pixel value swept across the screen is the
+ *     packed RGB-15 word.
+ *
+ * Designed for digital-RGBHV signal probing on the Marty mainboard:
+ * the pixel position deterministically encodes the value emitted by
+ * the video controller, so a logic analyzer trace at any pixel can
+ * be matched against the formula
+ *
+ *     colour(x,y) = ( (y * w + x) * N ) / (w * h)
+ *
+ * where N = 256 in 8-bpp modes and 32768 in 16-bpp modes.
+ *
+ * We avoid a 64-bit multiply (no compiler-rt linked) by using a
+ * 16.16 fixed-point accumulator: step_fp = (N << 16) / total, then
+ * colour = accum >> 16. The truncation costs at most ~1% of the
+ * colour range at the bottom-right corner (e.g. 253 instead of 255
+ * in 8-bpp 640x480) -- acceptable for our purposes since the formula
+ * above is the authoritative mapping, not the screen contents.
+ */
+
+static void prime_rgb332_palette(void)
+{
+    int i;
+    for (i = 0; i <= 255; ++i) {
+        u8 v  = (u8)i;
+        u8 r3 = (u8)((v >> 5) & 0x07);   /* bits 7..5 -> R */
+        u8 g3 = (u8)((v >> 2) & 0x07);   /* bits 4..2 -> G */
+        u8 b2 = (u8)( v       & 0x03);   /* bits 1..0 -> B */
+        /* Replicate the bit-field across all 8 DAC bits so the
+         * palette is monotonic and covers near-full intensity at
+         * index 0xFF. */
+        u8 r  = (u8)((r3 << 5) | (r3 << 2) | (r3 >> 1));
+        u8 g  = (u8)((g3 << 5) | (g3 << 2) | (g3 >> 1));
+        u8 b  = (u8)((b2 << 6) | (b2 << 4) | (b2 << 2) | b2);
+        video_set_palette(v, r, g, b);
+    }
+}
+
+static void render_rainbow(void)
+{
+    VideoSurface *s = video_get_surface();
+    u32 total = (u32)s->width * (u32)s->height;
+    int w = s->width;
+    int x, y;
+
+    if (s->bpp == 8) {
+        u32 step_fp = (256U << 16) / total;
+        u32 accum   = 0;
+        prime_rgb332_palette();
+        for (y = 0; y < s->height; ++y) {
+            u8 *row = s->pixels + (u32)y * s->pitch;
+            for (x = 0; x < w; ++x) {
+                row[x] = (u8)(accum >> 16);
+                accum += step_fp;
+            }
+        }
+    } else {
+        /* (32768 << 16) is exactly 2^31, fits unsigned. */
+        u32 step_fp = (32768U << 16) / total;
+        u32 accum   = 0;
+        for (y = 0; y < s->height; ++y) {
+            u16 *row = (u16 *)(s->pixels + (u32)y * s->pitch);
+            for (x = 0; x < w; ++x) {
+                /* Mask bit 15 defensively (superimpose transparency
+                 * flag): truncation keeps accum <= 2^31 so the shift
+                 * cannot set it, but a future change to ceiling
+                 * rounding might. */
+                row[x] = (u16)((accum >> 16) & 0x7FFFu);
+                accum += step_fp;
+            }
+        }
+    }
+}
+
+void pattern_rainbow(void)
+{
+    int redraw = 1, exit_now = 0;
+    while (!exit_now) {
+        if (redraw) render_rainbow();
+        tick(&redraw, &exit_now);
+    }
+}

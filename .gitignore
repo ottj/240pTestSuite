@@ -17,3 +17,6 @@
 */FM_Towns/boot/cdimage.iso
 */FM_Towns/boot/floppy*.bin
 */FM_Towns/boot/smoke.bin
+
+#OS
+**/.DS_Store

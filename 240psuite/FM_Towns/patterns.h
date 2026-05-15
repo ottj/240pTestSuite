@@ -20,5 +20,6 @@ void pattern_color_bars(void);
 void pattern_grid(void);
 void pattern_monoscope(void);
 void pattern_solid_colors(void);
+void pattern_rainbow(void);
 
 #endif

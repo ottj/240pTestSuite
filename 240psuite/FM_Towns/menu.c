@@ -17,6 +17,7 @@ enum {
     MENU_GRID,
     MENU_MONOSCOPE,
     MENU_SOLIDS,
+    MENU_RAINBOW,
     MENU_RES_15_240P,
     MENU_RES_15_480I,
     MENU_RES_24,
@@ -46,6 +47,7 @@ static const char *const labels[MENU_COUNT] = {
     "GRID",
     "MONOSCOPE",
     "SOLID COLORS",
+    "RAINBOW",
     "M11 15K 240P  HC ",
     "M14 15K 480I 256C",
     "M13 24K 640X400 *",
@@ -107,6 +109,7 @@ static void run_item(int item)
         case MENU_GRID:                pattern_grid();                  break;
         case MENU_MONOSCOPE:           pattern_monoscope();             break;
         case MENU_SOLIDS:              pattern_solid_colors();          break;
+        case MENU_RAINBOW:             pattern_rainbow();               break;
         case MENU_RES_15_240P:         video_set_mode(HFREQ_15KHZ_240P);    break;
         case MENU_RES_15_480I:         video_set_mode(HFREQ_15KHZ_480I);    break;
         case MENU_RES_24:              video_set_mode(HFREQ_24KHZ);         break;
