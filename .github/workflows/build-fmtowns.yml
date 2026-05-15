@@ -1,7 +1,6 @@
 name: Build FM Towns floppy + CD image
 
 on:
-  workflow_dispatch:
   push:
     paths:
       - '.github/workflows/build-fmtowns.yml'
