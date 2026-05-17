@@ -26,13 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build FM Towns images using devcontainer
+      - name: Build FM Towns CD image using devcontainer
         uses: devcontainers/ci@v0.3
         with:
           configFile: ./.devcontainer/FM_Towns/devcontainer.json
           push: never
+          # Only `make cd` -- the FD floppy path isn't hardware-verified
+          # yet (Marty Disk BIOS quirks under current firmware), so we
+          # don't publish the .fd image. Add `make all` back here and
+          # restore the FD steps below once FD boot is confirmed working.
           runCmd: |
-            cd boot && make all && make cd
+            cd boot && make cd
 
       - name: Stage release artifacts
         id: stage
@@ -42,8 +46,6 @@ jobs:
           mkdir -p release
           cp 240psuite/FM_Towns/boot/cdimage.iso \
              "release/240pTestSuite-FM_Towns-${VERSION}.iso"
-          cp 240psuite/FM_Towns/boot/floppy.bin \
-             "release/240pTestSuite-FM_Towns-${VERSION}.fd"
           (cd release && sha256sum * > SHA256SUMS)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -52,8 +54,8 @@ jobs:
         with:
           name: "240p Test Suite -- FM Towns ${{ steps.stage.outputs.version }}"
           body: |
-            Bootable CD ISO + floppy image for the Fujitsu FM Towns family,
-            built from tag `${{ github.ref_name }}`.
+            Bootable CD ISO for the Fujitsu FM Towns family, built from
+            tag `${{ github.ref_name }}`.
 
             ## How to use
 
@@ -61,8 +63,10 @@ jobs:
               and boot.
             * **FM Towns / Marty in [Tsugaru](https://github.com/captainys/TOWNSEMU):**
               `Tsugaru_CUI <rom-dir> -TOWNSTYPE MARTY -CD path/to/.iso -BOOTKEY CD`
-            * **Stock FM Towns with floppy drive:** write the `.fd` to a 2HD
-              floppy and boot from FD0.
+
+            A floppy (FD) image isn't published yet -- the FD boot path
+            still has open issues under current Marty firmware. Use the
+            CD image for real hardware and emulators alike.
 
             See [`240psuite/FM_Towns/README.md`](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/240psuite/FM_Towns/README.md)
             for the mode list, controls, hardware notes, and acknowledgements.
@@ -72,12 +76,9 @@ jobs:
             * `240pTestSuite-FM_Towns-${{ steps.stage.outputs.version }}.iso`
               -- 1 MB CD image, raw byte layout (no ISO 9660 filesystem;
               the FM Towns boot ROM only cares about the first 8 KB).
-            * `240pTestSuite-FM_Towns-${{ steps.stage.outputs.version }}.fd`
-              -- 1232 KB raw 2HD floppy image.
-            * `SHA256SUMS` -- checksums for both files.
+            * `SHA256SUMS` -- checksum for the ISO above.
           files: |
             release/*.iso
-            release/*.fd
             release/SHA256SUMS
           draft: false
           prerelease: false
