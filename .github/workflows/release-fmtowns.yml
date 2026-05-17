@@ -1,0 +1,83 @@
+name: Release FM Towns CD image
+
+# Triggered only by tag pushes that match the FM Towns-specific tag
+# pattern, so this workflow doesn't interfere with releases of any of
+# the other platform ports in this repo. To cut a release:
+#
+#   git tag fmtowns-v1.0.0
+#   git push origin fmtowns-v1.0.0
+#
+# A GitHub Release will appear under the repo's Releases tab with the
+# CD ISO + floppy image attached.
+on:
+  push:
+    tags:
+      - 'fmtowns-v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    # GITHUB_TOKEN needs contents:write to create the release and
+    # upload assets.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build FM Towns images using devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: ./.devcontainer/FM_Towns/devcontainer.json
+          push: never
+          runCmd: |
+            cd boot && make all && make cd
+
+      - name: Stage release artifacts
+        id: stage
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#fmtowns-}"          # e.g. fmtowns-v1.0.0 -> v1.0.0
+          mkdir -p release
+          cp 240psuite/FM_Towns/boot/cdimage.iso \
+             "release/240pTestSuite-FM_Towns-${VERSION}.iso"
+          cp 240psuite/FM_Towns/boot/floppy.bin \
+             "release/240pTestSuite-FM_Towns-${VERSION}.fd"
+          (cd release && sha256sum * > SHA256SUMS)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "240p Test Suite -- FM Towns ${{ steps.stage.outputs.version }}"
+          body: |
+            Bootable CD ISO + floppy image for the Fujitsu FM Towns family,
+            built from tag `${{ github.ref_name }}`.
+
+            ## How to use
+
+            * **FM Towns Marty (real hardware):** burn the `.iso` to a CD-R
+              and boot.
+            * **FM Towns / Marty in [Tsugaru](https://github.com/captainys/TOWNSEMU):**
+              `Tsugaru_CUI <rom-dir> -TOWNSTYPE MARTY -CD path/to/.iso -BOOTKEY CD`
+            * **Stock FM Towns with floppy drive:** write the `.fd` to a 2HD
+              floppy and boot from FD0.
+
+            See [`240psuite/FM_Towns/README.md`](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/240psuite/FM_Towns/README.md)
+            for the mode list, controls, hardware notes, and acknowledgements.
+
+            ## Files
+
+            * `240pTestSuite-FM_Towns-${{ steps.stage.outputs.version }}.iso`
+              -- 1 MB CD image, raw byte layout (no ISO 9660 filesystem;
+              the FM Towns boot ROM only cares about the first 8 KB).
+            * `240pTestSuite-FM_Towns-${{ steps.stage.outputs.version }}.fd`
+              -- 1232 KB raw 2HD floppy image.
+            * `SHA256SUMS` -- checksums for both files.
+          files: |
+            release/*.iso
+            release/*.fd
+            release/SHA256SUMS
+          draft: false
+          prerelease: false
